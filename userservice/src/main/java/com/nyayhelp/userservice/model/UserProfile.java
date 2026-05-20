@@ -10,24 +10,20 @@ public class UserProfile {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long authUserId; // from AuthService
-
-    private String role; // CLIENT / LAWYER
-
+    private Long authUserId;
+    private String email;
+    private String role;
     private String name;
     private String location;
-
-    // Lawyer fields
     private String category;
     private Integer experience;
     private Double fees;
+    private String verificationStatus;
+    private String documents;
+    private String barCouncilId; 
+    
 
-    private String verificationStatus; // PENDING / APPROVED / REJECTED
-
-    private String documents; // file URL
-
-    // 🔽 GETTERS & SETTERS
-
+    
     public Long getId() {
         return id;
     }
@@ -42,6 +38,14 @@ public class UserProfile {
 
     public void setAuthUserId(Long authUserId) {
         this.authUserId = authUserId;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 
     public String getRole() {
@@ -107,4 +111,14 @@ public class UserProfile {
     public void setDocuments(String documents) {
         this.documents = documents;
     }
+
+    public String getBarCouncilId() {
+    return barCouncilId;
+}
+
+public void setBarCouncilId(String barCouncilId) {
+    this.barCouncilId = barCouncilId;
+}
+
+
 }

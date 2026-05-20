@@ -2,8 +2,6 @@ package com.nyayhelp.userservice.dto;
 
 public class UserProfileRequest {
 
-    public Long authUserId;
-    public String role;
 
     public String name;
     public String location;
