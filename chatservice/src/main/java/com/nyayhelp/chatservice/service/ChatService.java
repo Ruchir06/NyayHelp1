@@ -41,6 +41,10 @@ public class ChatService {
             throw new RuntimeException("Chat not allowed. Case not assigned yet.");
         }
 
+        if (Boolean.TRUE.equals(caseData.chatEnded)) {
+            throw new RuntimeException("Chat has been ended by the client.");
+        }
+
         if (!senderId.equals(caseData.clientId) && !senderId.equals(caseData.lawyerId)) {
             throw new RuntimeException("Unauthorized to chat in this case.");
         }

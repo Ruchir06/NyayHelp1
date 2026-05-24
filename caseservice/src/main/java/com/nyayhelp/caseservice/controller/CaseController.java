@@ -60,4 +60,9 @@ public class CaseController {
     public Case getCase(@PathVariable Long id) {
         return service.getById(id);
     }
+
+    @PostMapping("/{id}/end-chat")
+    public String endChat(@PathVariable Long id, Authentication authentication) {
+        return service.endChat(id, authentication);
+    }
 }

@@ -22,6 +22,17 @@ public class Case {
 
     private Long lawyerId;
 
+    @Column(name = "chat_ended")
+    private Boolean chatEnded;
+
+    public Boolean getChatEnded() {
+        return chatEnded;
+    }
+
+    public void setChatEnded(Boolean chatEnded) {
+        this.chatEnded = chatEnded;
+    }
+
     // 🔽 GETTERS & SETTERS
 
     public Long getId() {

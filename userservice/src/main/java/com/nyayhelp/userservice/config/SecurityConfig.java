@@ -29,7 +29,11 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/api/users/internal/**").permitAll()
                         .requestMatchers("/api/users/by-auth/**").permitAll()
+                        .requestMatchers("/api/users/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/users/me").authenticated()
+                        .requestMatchers("/api/users/verification").authenticated()
                         .requestMatchers("/api/users/create").authenticated()
                         .anyRequest().authenticated()
                 )

@@ -2,9 +2,11 @@ package com.nyayhelp.authservice.controller;
 
 import com.nyayhelp.authservice.dto.AuthResponse;
 import com.nyayhelp.authservice.dto.LoginRequest;
+import com.nyayhelp.authservice.dto.MeResponse;
 import com.nyayhelp.authservice.dto.RegisterRequest;
 import com.nyayhelp.authservice.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -22,5 +24,10 @@ public class AuthController {
     @PostMapping("/login")
     public AuthResponse login(@RequestBody LoginRequest request) {
         return authService.login(request);
+    }
+
+    @GetMapping("/me")
+    public MeResponse me(Authentication authentication) {
+        return authService.me(authentication);
     }
 }

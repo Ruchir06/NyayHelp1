@@ -6,4 +6,5 @@ public class CaseResponse {
     public Long clientId;
     public Long lawyerId;
     public String status;
+    public Boolean chatEnded;
 }

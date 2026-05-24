@@ -145,4 +145,30 @@ public class CaseService {
         return repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Case not found"));
     }
+
+    public String endChat(Long caseId, Authentication authentication) {
+        Long currentClientId = (Long) authentication.getDetails();
+        String role = authentication.getAuthorities().iterator().next().getAuthority().replace("ROLE_", "");
+
+        if (!"CLIENT".equals(role)) {
+            throw new RuntimeException("Only the client can end the chat.");
+        }
+
+        Case c = repository.findById(caseId)
+                .orElseThrow(() -> new RuntimeException("Case not found"));
+
+        if (!currentClientId.equals(c.getClientId())) {
+            throw new RuntimeException("You can only end chat for your own case.");
+        }
+        if (!"ASSIGNED".equals(c.getStatus())) {
+            throw new RuntimeException("Chat can only be ended on an assigned case.");
+        }
+        if (Boolean.TRUE.equals(c.getChatEnded())) {
+            return "Chat already ended.";
+        }
+
+        c.setChatEnded(true);
+        repository.save(c);
+        return "Chat ended.";
+    }
 }

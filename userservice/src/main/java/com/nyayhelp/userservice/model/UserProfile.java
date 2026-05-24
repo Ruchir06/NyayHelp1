@@ -20,10 +20,39 @@ public class UserProfile {
     private Double fees;
     private String verificationStatus;
     private String documents;
-    private String barCouncilId; 
-    
+    private String barCouncilId;
 
-    
+    @Column(columnDefinition = "LONGTEXT")
+    private String livePhotoBase64;
+
+    @Column(columnDefinition = "LONGTEXT")
+    private String aadhaarBase64;
+
+    @Column(columnDefinition = "LONGTEXT")
+    private String barCouncilBase64;
+
+    @Column(columnDefinition = "LONGTEXT")
+    private String licenseBase64;
+
+    @Column(columnDefinition = "TEXT")
+    private String rejectionReason;
+
+    public String getLivePhotoBase64() { return livePhotoBase64; }
+    public void setLivePhotoBase64(String livePhotoBase64) { this.livePhotoBase64 = livePhotoBase64; }
+
+    public String getAadhaarBase64() { return aadhaarBase64; }
+    public void setAadhaarBase64(String aadhaarBase64) { this.aadhaarBase64 = aadhaarBase64; }
+
+    public String getBarCouncilBase64() { return barCouncilBase64; }
+    public void setBarCouncilBase64(String barCouncilBase64) { this.barCouncilBase64 = barCouncilBase64; }
+
+    public String getLicenseBase64() { return licenseBase64; }
+    public void setLicenseBase64(String licenseBase64) { this.licenseBase64 = licenseBase64; }
+
+    public String getRejectionReason() { return rejectionReason; }
+    public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
+
+
     public Long getId() {
         return id;
     }
