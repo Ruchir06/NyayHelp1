@@ -5,17 +5,34 @@ import com.nyayhelp.userservice.dto.LawyerVerificationRequest;
 import com.nyayhelp.userservice.dto.UserProfileRequest;
 import com.nyayhelp.userservice.model.UserProfile;
 import com.nyayhelp.userservice.repository.UserProfileRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class UserProfileService {
 
+    private static final Logger log = LoggerFactory.getLogger(UserProfileService.class);
+
     @Autowired
     private UserProfileRepository repository;
+
+    @Autowired
+    private RestClient restClient;
+
+    @Value("${nyayhelp.notificationservice.url:http://localhost:8086}")
+    private String notificationServiceUrl;
+
+    @Value("${nyayhelp.admin.email:}")
+    private String adminEmail;
 
     public String createProfile(UserProfileRequest request, Authentication authentication) {
 
@@ -98,6 +115,14 @@ public class UserProfileService {
         profile.setVerificationStatus("PENDING");
         profile.setRejectionReason(null);
         repository.save(profile);
+
+        if (!isBlank(adminEmail)) {
+            sendEmail(adminEmail, "ADMIN_VERIFICATION_SUBMITTED", Map.of(
+                    "lawyerName", nullToEmpty(profile.getName()),
+                    "lawyerEmail", nullToEmpty(profile.getEmail())
+            ));
+        }
+
         return "Verification submitted";
     }
 
@@ -120,6 +145,11 @@ public class UserProfileService {
         profile.setVerificationStatus("APPROVED");
         profile.setRejectionReason(null);
         repository.save(profile);
+
+        sendEmail(profile.getEmail(), "VERIFICATION_APPROVED", Map.of(
+                "name", nullToEmpty(profile.getName())
+        ));
+
         return "Approved";
     }
 
@@ -132,10 +162,37 @@ public class UserProfileService {
         profile.setVerificationStatus("REJECTED");
         profile.setRejectionReason(reason);
         repository.save(profile);
+
+        sendEmail(profile.getEmail(), "VERIFICATION_REJECTED", Map.of(
+                "name", nullToEmpty(profile.getName()),
+                "reason", nullToEmpty(reason)
+        ));
+
         return "Rejected";
+    }
+
+    private void sendEmail(String to, String event, Map<String, Object> data) {
+        if (isBlank(to)) return;
+        try {
+            Map<String, Object> body = new HashMap<>();
+            body.put("to", to);
+            body.put("event", event);
+            body.put("data", data);
+            restClient.post()
+                    .uri(notificationServiceUrl + "/api/notifications/send")
+                    .body(body)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (Exception e) {
+            log.warn("Notification dispatch failed (event={}, to={}): {}", event, to, e.getMessage());
+        }
     }
 
     private boolean isBlank(String s) {
         return s == null || s.trim().isEmpty();
+    }
+
+    private String nullToEmpty(String s) {
+        return s == null ? "" : s;
     }
 }

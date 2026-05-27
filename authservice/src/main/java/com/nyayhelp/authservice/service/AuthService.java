@@ -7,7 +7,10 @@ import com.nyayhelp.authservice.dto.RegisterRequest;
 import com.nyayhelp.authservice.model.User;
 import com.nyayhelp.authservice.repository.UserRepository;
 import com.nyayhelp.authservice.util.JwtUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -18,6 +21,8 @@ import java.util.Map;
 
 @Service
 public class AuthService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     @Autowired
     private UserRepository userRepository;
@@ -30,6 +35,12 @@ public class AuthService {
 
     @Autowired
     private RestClient restClient;
+
+    @Value("${nyayhelp.userservice.url:http://localhost:8082}")
+    private String userServiceUrl;
+
+    @Value("${nyayhelp.notificationservice.url:http://localhost:8086}")
+    private String notificationServiceUrl;
 
     public String register(RegisterRequest request) {
 
@@ -50,6 +61,9 @@ public class AuthService {
         userRepository.save(user);
 
         createProfile(user, request);
+
+        String event = "LAWYER".equalsIgnoreCase(user.getRole()) ? "LAWYER_SIGNUP" : "CLIENT_SIGNUP";
+        sendEmail(user.getEmail(), event, Map.of("name", user.getName() == null ? "" : user.getName()));
 
         return "User Registered Successfully";
     }
@@ -104,12 +118,29 @@ public class AuthService {
 
         try {
             restClient.post()
-                    .uri("http://localhost:8082/api/users/internal/create")
+                    .uri(userServiceUrl + "/api/users/internal/create")
                     .body(body)
                     .retrieve()
                     .toBodilessEntity();
         } catch (Exception e) {
-            System.out.println("Profile creation failed for " + user.getEmail() + ": " + e.getMessage());
+            log.warn("Profile creation failed for {}: {}", user.getEmail(), e.getMessage());
+        }
+    }
+
+    private void sendEmail(String to, String event, Map<String, Object> data) {
+        if (to == null || to.isBlank()) return;
+        try {
+            Map<String, Object> body = new HashMap<>();
+            body.put("to", to);
+            body.put("event", event);
+            body.put("data", data);
+            restClient.post()
+                    .uri(notificationServiceUrl + "/api/notifications/send")
+                    .body(body)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (Exception e) {
+            log.warn("Notification dispatch failed (event={}, to={}): {}", event, to, e.getMessage());
         }
     }
 }

@@ -7,15 +7,24 @@ import com.nyayhelp.caseservice.model.Case;
 import com.nyayhelp.caseservice.model.CaseApplication;
 import com.nyayhelp.caseservice.repository.CaseApplicationRepository;
 import com.nyayhelp.caseservice.repository.CaseRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class CaseService {
+
+    private static final Logger log = LoggerFactory.getLogger(CaseService.class);
 
     @Autowired
     private CaseRepository repository;
@@ -25,6 +34,12 @@ public class CaseService {
 
     @Autowired
     private RestClient restClient;
+
+    @Value("${nyayhelp.userservice.url:http://localhost:8082}")
+    private String userServiceUrl;
+
+    @Value("${nyayhelp.notificationservice.url:http://localhost:8086}")
+    private String notificationServiceUrl;
 
     public String createCase(CaseRequest request, Authentication authentication) {
         String role = authentication.getAuthorities().iterator().next().getAuthority().replace("ROLE_", "");
@@ -43,6 +58,15 @@ public class CaseService {
         c.setStatus("OPEN");
 
         repository.save(c);
+
+        UserProfileResponse client = fetchProfile(clientId);
+        if (client != null) {
+            sendEmail(client.email, "CASE_POSTED", Map.of(
+                    "name", nullToEmpty(client.name),
+                    "title", nullToEmpty(c.getTitle())
+            ));
+        }
+
         return "Case Created Successfully";
     }
 
@@ -55,15 +79,32 @@ public class CaseService {
         Long lawyerId = (Long) authentication.getDetails();
 
         if (!"LAWYER".equals(role)) {
-            throw new RuntimeException("Only lawyer can apply");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only lawyer can apply");
         }
+
+        UserProfileResponse lawyer = fetchProfile(lawyerId);
+        if (lawyer == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Your profile is under verification");
+        }
+        if (!"APPROVED".equalsIgnoreCase(lawyer.verificationStatus)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Your profile is under verification");
+        }
+
+        Case targetCase = repository.findById(caseId).orElse(null);
 
         CaseApplication app = new CaseApplication();
         app.setCaseId(caseId);
         app.setLawyerId(lawyerId);
         app.setStatus("APPLIED");
-
         applicationRepo.save(app);
+
+        sendEmail(lawyer.email, "BID_PLACED", Map.of(
+                "name", nullToEmpty(lawyer.name),
+                "caseTitle", targetCase != null ? nullToEmpty(targetCase.getTitle()) : "the case"
+        ));
+
         return "Applied successfully";
     }
 
@@ -89,10 +130,7 @@ public class CaseService {
         List<CaseApplication> apps = applicationRepo.findByCaseId(caseId);
 
         return apps.stream().map(app -> {
-            UserProfileResponse user = restClient.get()
-                    .uri("http://localhost:8082/api/users/by-auth/" + app.getLawyerId())
-                    .retrieve()
-                    .body(UserProfileResponse.class);
+            UserProfileResponse user = fetchProfile(app.getLawyerId());
 
             CaseApplicationResponse res = new CaseApplicationResponse();
             res.lawyerId = app.getLawyerId();
@@ -138,6 +176,24 @@ public class CaseService {
         }
 
         applicationRepo.saveAll(apps);
+
+        UserProfileResponse client = fetchProfile(currentClientId);
+        UserProfileResponse lawyer = fetchProfile(lawyerId);
+
+        if (lawyer != null) {
+            sendEmail(lawyer.email, "BID_ACCEPTED_LAWYER", Map.of(
+                    "name", nullToEmpty(lawyer.name),
+                    "caseTitle", nullToEmpty(c.getTitle())
+            ));
+        }
+        if (client != null) {
+            sendEmail(client.email, "BID_ACCEPTED_CLIENT", Map.of(
+                    "name", nullToEmpty(client.name),
+                    "caseTitle", nullToEmpty(c.getTitle()),
+                    "lawyerName", lawyer != null ? nullToEmpty(lawyer.name) : "the advocate"
+            ));
+        }
+
         return "Lawyer selected successfully";
     }
 
@@ -170,5 +226,39 @@ public class CaseService {
         c.setChatEnded(true);
         repository.save(c);
         return "Chat ended.";
+    }
+
+    private UserProfileResponse fetchProfile(Long authUserId) {
+        if (authUserId == null) return null;
+        try {
+            return restClient.get()
+                    .uri(userServiceUrl + "/api/users/by-auth/" + authUserId)
+                    .retrieve()
+                    .body(UserProfileResponse.class);
+        } catch (Exception e) {
+            log.warn("Failed to fetch profile for authUserId={}: {}", authUserId, e.getMessage());
+            return null;
+        }
+    }
+
+    private void sendEmail(String to, String event, Map<String, Object> data) {
+        if (to == null || to.isBlank()) return;
+        try {
+            Map<String, Object> body = new HashMap<>();
+            body.put("to", to);
+            body.put("event", event);
+            body.put("data", data);
+            restClient.post()
+                    .uri(notificationServiceUrl + "/api/notifications/send")
+                    .body(body)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (Exception e) {
+            log.warn("Notification dispatch failed (event={}, to={}): {}", event, to, e.getMessage());
+        }
+    }
+
+    private String nullToEmpty(String s) {
+        return s == null ? "" : s;
     }
 }
